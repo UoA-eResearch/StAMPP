@@ -61,37 +61,44 @@ function (geno, nboots=100, percent=95, nclusters=1){
   
   simple.geno <- geno
   
-  p.a <- ph.a <- oh <-ninds <- matrix(NA, ncol=nloc, nrow=npops, dimnames=list(pops)) #matrix to store counts of allele A, level of hetrozygousity and number of individuals without missing data per loci
   
-  for (i in 1:npops){ #loop for each population
-        
+  res <- foreach(i = 1:npops) %dopar% { #loop for each population
+    
     refpop <- pops[i]
     
     pop.geno <- subset(simple.geno, simple.geno[,2]==refpop)
     
     if(nloc>1){ #if there is 2 or more loci
     
-      ninds[i,] <- colSums((pop.geno[,5:(4+nloc)]!="NaN")*(pop.geno[,4]/2), na.rm=TRUE) #number of diploid eqiv genomes at each loci without missing data 
+      ninds <- colSums((pop.geno[,5:(4+nloc)]!="NaN")*(pop.geno[,4]/2), na.rm=TRUE) #number of diploid eqiv genomes at each loci without missing data
       
-      p.a[i,] <- colMeans(pop.geno[5:(4+nloc)], na.rm=TRUE) #total number of alleles in population at each loci multipled by number of diploid eqiv genomes
+      p.a <- colMeans(pop.geno[5:(4+nloc)], na.rm=TRUE) #total number of alleles in population at each loci multipled by number of diploid eqiv genomes
       
-      oh[i,] <- colSums((((pop.geno[,5:(4+nloc)])*(pop.geno[,5:(4+nloc)]<=0.5)) + ((pop.geno[5:(4+nloc)]-0.5)*(pop.geno[5:(4+nloc)]>0.5 & pop.geno[5:(4+nloc)]!=1)))*(pop.geno[,4]/2), na.rm=TRUE) #level of hetrozygousity in population multipled by number of diploid eqiv genomes
-      oh[i,] <- oh[i,]*2
+      oh <- colSums((((pop.geno[,5:(4+nloc)])*(pop.geno[,5:(4+nloc)]<=0.5)) + ((pop.geno[5:(4+nloc)]-0.5)*(pop.geno[5:(4+nloc)]>0.5 & pop.geno[5:(4+nloc)]!=1)))*(pop.geno[,4]/2), na.rm=TRUE) #level of hetrozygousity in population multipled by number of diploid eqiv genomes
+      oh <- oh*2
       
     }else{ #if the genotype dataset only has 1 locus
       
-      ninds[i,] <- sum((pop.geno[,5:(4+nloc)]!="NaN")*(pop.geno[,4]/2), na.rm=TRUE) #number of diploid eqiv genomes at each loci without missing data 
+      ninds <- sum((pop.geno[,5:(4+nloc)]!="NaN")*(pop.geno[,4]/2), na.rm=TRUE) #number of diploid eqiv genomes at each loci without missing data
       
-      p.a[i,] <- colMeans(pop.geno[5:(4+nloc)], na.rm=TRUE) #total number of alleles in population at each loci multipled by number of diploid eqiv genomes
+      p.a <- colMeans(pop.geno[5:(4+nloc)], na.rm=TRUE) #total number of alleles in population at each loci multipled by number of diploid eqiv genomes
       
-      oh[i,] <- sum((((pop.geno[,5:(4+nloc)])*(pop.geno[,5:(4+nloc)]<=0.5)) + ((pop.geno[5:(4+nloc)]-0.5)*(pop.geno[5:(4+nloc)]>0.5 & pop.geno[5:(4+nloc)]!=1)))*(pop.geno[,4]/2), na.rm=TRUE) #level of hetrozygousity in population multipled by number of diploid eqiv genomes
-      oh[i,] <- oh[i,]*2
+      oh <- sum((((pop.geno[,5:(4+nloc)])*(pop.geno[,5:(4+nloc)]<=0.5)) + ((pop.geno[5:(4+nloc)]-0.5)*(pop.geno[5:(4+nloc)]>0.5 & pop.geno[5:(4+nloc)]!=1)))*(pop.geno[,4]/2), na.rm=TRUE) #level of hetrozygousity in population multipled by number of diploid eqiv genomes
+      oh <- oh*2
       
     }
+    data.frame(ninds, p.a, oh)
     
   }
   
-
+  p.a <- ph.a <- oh <-ninds <- matrix(NA, ncol=nloc, nrow=npops, dimnames=list(pops)) #matrix to store counts of allele A, level of hetrozygousity and number of individuals without missing data per loci
+  
+  for (i in 1:npops){ #loop for each population
+    ninds[i,] <- res[[i]]$ninds
+    p.a[i,] <- res[[i]]$p.a
+    oh[i,] <- res[[i]]$oh
+  }
+  
   p <- p.a #frequency of allele A based on the number of diploid eqiv genomes at each loci without missing data
   oh <- oh/ninds #frequency of hetrozygous genotypes at each loci based on the number of diploid eqiv genomes without missing data
 
